@@ -1,1 +1,44 @@
+name: Sync Kobo data to dashboard
 
+on:
+  schedule:
+    # Runs daily at 06:00 Nigeria time (WAT, UTC+1) = 05:00 UTC
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}   # lets you also trigger it manually from the Actions tab
+
+permissions:
+  contents: write   # needed so the workflow can commit the refreshed data.json back to the repo
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Kobo sync script
+        env:
+          KOBO_API_TOKEN: ${{ secrets.KOBO_API_TOKEN }}
+          KOBO_ASSET_UID: ${{ secrets.KOBO_ASSET_UID }}
+          # Only needed if you're on the UN-hosted humanitarian server
+          # instead of the default kf.kobotoolbox.org — uncomment and set
+          # as a repo secret if so:
+          # KOBO_SERVER: ${{ secrets.KOBO_SERVER }}
+        run: python3 sync_kobo_to_dashboard.py
+
+      - name: Commit updated data.json (only if it changed)
+        run: |
+          git config user.name "kobo-sync-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --quiet -- data.json; then
+            echo "No change in data.json — nothing to commit."
+          else
+            git add data.json
+            git commit -m "Auto-sync: refresh dashboard data from Kobo"
+            git push
+          fi
