@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jigawa Senior Secondary Schools — Assessment Dashboard</title>
+<style>
+  :root{
+    --navy:#1B2A4A; --paper:#F7F6F2; --ink:#20242C;
+    --line:#DCD8CC; --gold:#C9962C; --red:#B3372C; --green:#2E7D4F; --muted:#6B7280;
+  }
+  *{box-sizing:border-box}
+  html{scroll-padding-top:env(safe-area-inset-top,0px)}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;}
+  h1,h2{font-family:Georgia,"Times New Roman",serif; margin:0; font-weight:700;}
+  header{background:var(--navy); color:#fff; padding:28px 28px 22px;
+    padding-top:calc(28px + env(safe-area-inset-top,0px));}
+  header .eyebrow{color:var(--gold); font-size:13px; margin-bottom:6px;}
+  header h1{font-size:26px; line-height:1.25;}
+  header .sub{color:#C7CEDC; font-size:14px; margin-top:8px; max-width:62ch;}
+  .banner{background:#FFF4E0; border-bottom:1px solid #EAD9AE; color:#7A5A12;
+    font-size:13.5px; padding:10px 20px; text-align:center;}
+  main{max-width:1180px; margin:0 auto; padding:24px 20px 60px;}
+  .kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px;}
+  .kpi{background:#fff; border:1px solid var(--line); border-radius:4px; padding:16px 18px;}
+  .kpi .num{font-family:Georgia,serif; font-size:30px; font-weight:700;}
+  .kpi .num.red{color:var(--red);}
+  .kpi .label{font-size:13px; color:var(--muted); margin-top:4px;}
+  .layout{display:grid; grid-template-columns:1fr 1.4fr; gap:22px; align-items:start;}
+  @media (max-width:820px){ .kpis{grid-template-columns:repeat(2,1fr)} .layout{grid-template-columns:1fr} }
+  section.panel{background:#fff; border:1px solid var(--line); border-radius:4px; overflow:hidden;}
+  .panel-head{padding:14px 18px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:baseline;}
+  .panel-head h2{font-size:17px;}
+  .panel-head .count{font-size:13px; color:var(--muted);}
+  .alert{padding:13px 18px; border-bottom:1px solid var(--line); display:flex; gap:12px;}
+  .alert:last-child{border-bottom:none;}
+  .alert .dot{width:9px; height:9px; border-radius:50%; background:var(--red); margin-top:5px; flex:0 0 auto;}
+  .alert .school{font-weight:600; font-size:14.5px;}
+  .alert .lga{color:var(--muted); font-size:12.5px;}
+  .alert .issue{font-size:13.5px; margin-top:3px;}
+  .empty{padding:24px 18px; color:var(--muted); font-size:14px;}
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th,td{text-align:left; padding:10px 14px; border-bottom:1px solid var(--line);}
+  th{font-size:12px; color:var(--muted); font-weight:600; background:#FAFAF7;}
+  tr:last-child td{border-bottom:none;}
+  .pct-bar{display:flex; align-items:center; gap:8px;}
+  .pct-bar .track{flex:1; height:7px; background:#EEEBE2; border-radius:4px; overflow:hidden; min-width:40px;}
+  .pct-bar .fill{height:100%; border-radius:4px; background:var(--gold);}
+  .pct-bar .fill.low{background:var(--red);}
+  .pct-bar .fill.high{background:var(--green);}
+  footer{max-width:1180px; margin:0 auto; padding:0 20px 50px; color:var(--muted); font-size:12.5px; line-height:1.6;}
+  .tag{display:inline-block; font-size:11.5px; padding:2px 8px; border-radius:3px; border:1px solid var(--line); color:var(--muted);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Office of the Technical Adviser to the Governor on Higher Education — Jigawa State</div>
+  <h1>Senior Secondary Schools Assessment</h1>
+  <div class="sub">Aggregated view of field assessment visits across the state.</div>
+</header>
+<div class="banner" id="sample-banner" style="display:none;">
+  Showing sample data for illustration — no live submissions found yet at <code>data.json</code>.
+</div>
+
+<main>
+  <div class="kpis" id="kpis"></div>
+  <div class="layout">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Needs attention</h2>
+        <span class="count" id="alert-count"></span>
+      </div>
+      <div id="alerts"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>By Local Government Area</h2>
+        <span class="count" id="lga-count"></span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>LGA</th><th>Schools</th><th>Avg. attendance</th><th>NECO success</th><th>Facilities functional</th></tr>
+        </thead>
+        <tbody id="lga-rows"></tbody>
+      </table>
+    </section>
+  </div>
+</main>
+
+<footer>
+  Generated: <span id="generated-at">—</span>
+  &nbsp; <span class="tag">Data source: Kobo submissions</span>
+</footer>
+
+<script>
+const SAMPLE_DATA = {
+  generated_at: null,
+  kpis: { schools_assessed: 47, total_enrolment: 38210, avg_neco_pct: 71, flagged_schools: 9 },
+  alerts: [
+    {school:"GSSS Kazaure", lga:"Kazaure", issue:"Physics and Chemistry offered with no subject teacher."},
+    {school:"GGSS Birnin Kudu", lga:"Birnin Kudu", issue:"Attendance below 60%; school bus grounded since June."},
+    {school:"GSSS Gagarawa", lga:"Gagarawa", issue:"No working water supply; toilets rated poor."},
+    {school:"GSSS Ringim", lga:"Ringim", issue:"AGILE classroom block marked abandoned since 2024."},
+    {school:"GGSS Hadejia", lga:"Hadejia", issue:"Overgrown bush on premises — reptile risk reported."}
+  ],
+  lga_breakdown: [
+    {lga:"Dutse", schools:6, avg_attendance:84, neco_pct:79, facilities_pct:88},
+    {lga:"Kazaure", schools:5, avg_attendance:61, neco_pct:52, facilities_pct:48},
+    {lga:"Hadejia", schools:4, avg_attendance:73, neco_pct:68, facilities_pct:65},
+    {lga:"Birnin Kudu", schools:5, avg_attendance:58, neco_pct:55, facilities_pct:61},
+    {lga:"Ringim", schools:4, avg_attendance:77, neco_pct:70, facilities_pct:59},
+    {lga:"Gagarawa", schools:3, avg_attendance:66, neco_pct:63, facilities_pct:41}
+  ]
+};
+
+function barClass(pct){ if(pct===null||pct===undefined) return ""; if(pct<55) return "low"; if(pct>=80) return "high"; return ""; }
+function pctCell(pct){
+  if(pct===null||pct===undefined) return '<span style="color:var(--muted)">—</span>';
+  return `<div class="pct-bar"><div class="track"><div class="fill ${barClass(pct)}" style="width:${pct}%"></div></div>${pct}%</div>`;
+}
+
+function render(data, isSample){
+  document.getElementById('sample-banner').style.display = isSample ? 'block' : 'none';
+  document.getElementById('generated-at').textContent = data.generated_at || 'sample data (no sync yet)';
+
+  const k = data.kpis;
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="num">${k.schools_assessed}</div><div class="label">Schools assessed this term</div></div>
+    <div class="kpi"><div class="num">${k.total_enrolment.toLocaleString()}</div><div class="label">Students enrolled (SS1–SS3)</div></div>
+    <div class="kpi"><div class="num">${k.avg_neco_pct}%</div><div class="label">Average NECO 5-credit success</div></div>
+    <div class="kpi"><div class="num red">${k.flagged_schools}</div><div class="label">Schools with a critical flag</div></div>
+  `;
+
+  document.getElementById('alert-count').textContent = `${data.alerts.length} flagged`;
+  document.getElementById('alerts').innerHTML = data.alerts.length
+    ? data.alerts.map(a => `
+      <div class="alert">
+        <div class="dot"></div>
+        <div>
+          <div class="school">${a.school}</div>
+          <div class="lga">${a.lga} LGA</div>
+          <div class="issue">${a.issue}</div>
+        </div>
+      </div>`).join('')
+    : `<div class="empty">No flagged schools in the current data.</div>`;
+
+  document.getElementById('lga-count').textContent = `${data.lga_breakdown.length} LGAs reporting`;
+  document.getElementById('lga-rows').innerHTML = data.lga_breakdown.map(r => `
+    <tr>
+      <td>${r.lga}</td>
+      <td>${r.schools}</td>
+      <td>${r.avg_attendance !== null ? r.avg_attendance + '%' : '—'}</td>
+      <td>${pctCell(r.neco_pct)}</td>
+      <td>${pctCell(r.facilities_pct)}</td>
+    </tr>`).join('');
+}
+
+fetch('data.json', {cache:'no-store'})
+  .then(r => { if(!r.ok) throw new Error('no data.json'); return r.json(); })
+  .then(data => render(data, false))
+  .catch(() => render(SAMPLE_DATA, true));
+</script>
+
+</body>
+</html>
